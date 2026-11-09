@@ -1,0 +1,17 @@
+# Ajuste fino com interpolação bicúbica de 32 x 32 para 64 x 64.
+seed: 42
+validation_fraction: 0.20
+batch_size: 128
+epochs: 40
+learning_rate: 0.001
+patience: 7
+reduce_lr_patience: 3
+dropout: 0.30
+weight_decay: 0.0001
+architecture: residual
+run_name: residual_bicubica
+fine_tune_from: residual_60_cpu
+photometric_augmentation:
+  brightness: 0
+  contrast: 0
+bicubic_size: 64

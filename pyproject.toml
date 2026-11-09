@@ -8,6 +8,14 @@ version = "0.1.0"
 description = "Projeto de classificação CIFAR-10 com TensorFlow/Keras"
 requires-python = ">=3.10"
 
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.32,<1",
+    "python-multipart>=0.0.18,<1",
+    "Pillow>=10.4,<13",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

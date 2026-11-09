@@ -27,8 +27,7 @@ def stratified_indices(y: np.ndarray, fraction: float, seed: int) -> tuple[np.nd
     return np.asarray(train_idx), np.asarray(val_idx)
 
 
-def load_development_data(fraction: float, seed: int, save_indices: str | Path | None = None):
-    """Lê exclusivamente os cinco lotes oficiais de desenvolvimento."""
+def _load_batches(batch_names):
     from tensorflow.keras.utils import get_file
 
     archive = get_file(
@@ -40,14 +39,23 @@ def load_development_data(fraction: float, seed: int, save_indices: str | Path |
     )
     images, labels = [], []
     with tarfile.open(archive, "r:gz") as batches:
-        for batch_number in range(1, 6):
-            batch_path = f"cifar-10-batches-py/data_batch_{batch_number}"
+        for name in batch_names:
+            batch_path = f"cifar-10-batches-py/{name}"
             with batches.extractfile(batch_path) as handle:
                 batch = pickle.load(handle, encoding="bytes")
             images.append(batch[b"data"].reshape(-1, 3, 32, 32).transpose(0, 2, 3, 1))
             labels.extend(batch[b"labels"])
-    x = np.concatenate(images)
-    y = np.asarray(labels, dtype=np.int64)
+    return np.concatenate(images), np.asarray(labels, dtype=np.int64)
+
+
+def load_official_test():
+    """Lê somente o lote reservado à avaliação final."""
+    return _load_batches(("test_batch",))
+
+
+def load_development_data(fraction: float, seed: int, save_indices: str | Path | None = None):
+    """Lê exclusivamente os cinco lotes oficiais de desenvolvimento."""
+    x, y = _load_batches(f"data_batch_{number}" for number in range(1, 6))
     train_idx, val_idx = stratified_indices(y, fraction, seed)
     if save_indices is not None:
         target = Path(save_indices)

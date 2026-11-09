@@ -1,0 +1,5 @@
+# Checkpoint congelado antes de abrir o teste oficial.
+run_name: residual_60_cpu
+training_epochs: 60
+best_epoch: 34
+checkpoint_sha256: e6813ac7e8212c27151fc604d566e04fb8e7614915411c3ea8383e817c953783

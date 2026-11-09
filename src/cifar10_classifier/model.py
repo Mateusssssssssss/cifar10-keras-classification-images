@@ -30,12 +30,19 @@ def build_cnn(
     *,
     filters_per_block: tuple[int, ...] = (32, 64, 128),
     architecture: str = "baseline",
+    bicubic_size: int | None = None,
 ):
     from tensorflow import keras
     from tensorflow.keras import layers
 
     inputs = keras.Input(shape=(32, 32, 3), dtype="float32", name="image_rgb")
-    x = layers.Rescaling(1.0 / 255.0)(inputs)
+    x = inputs
+    if bicubic_size is not None:
+        x = layers.Resizing(
+            bicubic_size, bicubic_size, interpolation="bicubic", name="bicubic_resize",
+        )(x)
+        x = layers.ReLU(max_value=255.0, name="clip_pixels")(x)
+    x = layers.Rescaling(1.0 / 255.0)(x)
     x = layers.RandomFlip("horizontal", seed=42)(x)
     x = layers.RandomTranslation(0.08, 0.08, seed=42)(x)
     if architecture == "residual":

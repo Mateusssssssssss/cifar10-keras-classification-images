@@ -20,6 +20,7 @@ CNN para classificar imagens RGB de 32 × 32 nas dez classes do CIFAR-10. O proj
 | [02_treino_validacao.ipynb](notebooks/02_treino_validacao.ipynb) | Histórico por época, curvas e checkpoint selecionado |
 | [03_metricas_validacao.ipynb](notebooks/03_metricas_validacao.ipynb) | Comparação dos conjuntos, métricas por classe, matriz e exemplos de erros |
 | [04_comparacao_cnns.ipynb](notebooks/04_comparacao_cnns.ipynb) | Comparação da CNN leve com a residual |
+| [05_metricas_teste.ipynb](notebooks/05_metricas_teste.ipynb) | Avaliação final no teste oficial |
 | `reports/` e `models/` | Artefatos locais da execução |
 | `tests/` e `.github/workflows/` | Testes unitários e CI |
 
@@ -100,5 +101,79 @@ python scripts/evaluate_validation.py --config configs/residual_60_cpu.yaml
 ```
 
 O checkpoint fica em `models/residual_60_cpu/` e as métricas em `reports/residual_60_cpu/`.
+
+## Experimento de brilho e contraste
+
+Os ajustes finos `residual_luz` e `residual_luz_controle` partem do checkpoint da época 34 de `residual_60_cpu`. Cada braço treinou por seis épocas adicionais. A variante aplicou brilho de ±5% e contraste de ±10% apenas às imagens de treino.
+
+| Métrica na validação | Partida | Controle | Brilho e contraste |
+| --- | ---: | ---: | ---: |
+| Acurácia | 85,52% | 85,44% | 85,62% |
+| Precision macro | 85,55% | 85,38% | 85,57% |
+| Recall macro | 85,52% | 85,44% | 85,62% |
+| F1 macro | 85,47% | 85,37% | 85,56% |
+| Perda | 0,6311 | 0,6162 | 0,6083 |
+
+As curvas e as confusões estão no [notebook comparativo](notebooks/04_comparacao_cnns.ipynb). Para repetir o experimento após a rodada de 60 épocas, execute os comandos abaixo.
+
+```bash
+python scripts/train.py --config configs/residual_luz_controle.yaml
+python scripts/evaluate_validation.py --config configs/residual_luz_controle.yaml
+python scripts/train.py --config configs/residual_luz.yaml
+python scripts/evaluate_validation.py --config configs/residual_luz.yaml
+```
+
+## Interpolação bicúbica
+
+O ajuste fino `residual_bicubica` partiu do checkpoint da época 34 e ampliou as imagens de 32 × 32 para 64 × 64 dentro da CNN. O controle usou 32 × 32. As duas rodadas usaram os mesmos índices e seis épocas adicionais, com brilho e contraste desativados.
+
+| Métrica na validação | Controle 32 × 32 | Bicúbica 64 × 64 |
+| --- | ---: | ---: |
+| Acurácia | 85,44% | 84,51% |
+| Precision macro | 85,38% | 84,95% |
+| Recall macro | 85,44% | 84,51% |
+| F1 macro | 85,37% | 84,53% |
+| Perda | 0,6162 | 0,5855 |
+
+O [notebook comparativo](notebooks/04_comparacao_cnns.ipynb) reúne as curvas e os erros por classe. Para repetir a rodada após o treinamento de 60 épocas, execute os comandos abaixo.
+
+```bash
+python scripts/train.py --config configs/residual_bicubica.yaml
+python scripts/evaluate_validation.py --config configs/residual_bicubica.yaml
+```
+
+## Avaliação final no teste oficial
+
+O manifesto `configs/final_test.yaml` identifica pelo SHA-256 o checkpoint da época 34 da CNN residual treinada até 60 épocas. A avaliação usou as 10.000 imagens do lote oficial e registrou **85,27% de acurácia** e **85,21% de F1 macro**.
+
+O [notebook de teste](notebooks/05_metricas_teste.ipynb) contém os resultados agregados e por classe, a matriz de confusão e as curvas ROC e Precision–Recall. Os dados usados no notebook ficam em `reports/final_test/`.
+
+Para gerar o relatório final com o checkpoint congelado, use o comando abaixo. Se o relatório já estiver disponível, o comando devolve as métricas gravadas.
+
+```bash
+python scripts/evaluate_test.py
+```
+
+## Modelo serializado e API
+
+O exportador gera `models/final/cifar10_residual.keras` para inferência e grava a origem e o SHA-256 em `models/final/manifest.json`. Ele usa o checkpoint da época 34 da rodada de 60 épocas, valida o SHA-256 do manifesto final e compara as previsões antes e depois da exportação.
+
+Na raiz do projeto, com o ambiente virtual ativo, execute os comandos abaixo.
+
+```powershell
+python -m pip install -r requirements.txt
+python -m pip install -e ".[api]"
+python scripts/export_model.py
+python -m uvicorn cifar10_classifier.api:app --host 127.0.0.1 --port 8000
+```
+
+Abra a [documentação interativa](http://127.0.0.1:8000/docs) para enviar uma imagem. Em outro terminal, também é possível usar os comandos abaixo.
+
+```powershell
+curl.exe http://127.0.0.1:8000/health
+curl.exe -F "file=@C:\caminho\imagem.jpg" http://127.0.0.1:8000/predict
+```
+
+`POST /predict` aceita JPEG, PNG ou WebP estáticos, com até 5 MiB e 16 megapixels. A API corrige a orientação EXIF, converte para RGB e ajusta a imagem para 32 × 32 com recorte central e interpolação bilinear. A resposta inclui a classe prevista, a confiança e as probabilidades das dez classes do CIFAR-10. `GET /health` identifica a rodada e a época do modelo carregado.
 
 **Fonte dos dados** [CIFAR-10 oficial](https://www.cs.toronto.edu/~kriz/cifar.html).
